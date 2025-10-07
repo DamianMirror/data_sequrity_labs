@@ -2,8 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
-from lab1_utils.lcg import lcg, save_to_csv
+from lab1_utils.lcg import lcg
 from algo_tests.cesaro import cesaro_test
+from utils.data_saver import save_lcg_results
 
 app = FastAPI()
 
@@ -18,7 +19,7 @@ app.add_middleware(
 
 class LCGParams(BaseModel):
     m: Optional[int] = 2**20 - 1  # Модуль порівняння
-    a: Optional[int] = 73         # Множник
+    a: Optional[int] = 343         # Множник
     c: Optional[int] = 89         # Приріст
     x0: Optional[int] = 1         # Початкове значення
     n: Optional[int] = 20         # Кількість чисел
@@ -34,19 +35,25 @@ def generate_numbers(params: Optional[LCGParams] = None):
         params = LCGParams()
 
     numbers = lcg(params.x0, params.a, params.c, params.m, params.n)
-    save_to_csv(numbers)
     coprime_percent, relative_error = cesaro_test(numbers)
+
+    # Збираємо параметри для збереження
+    lcg_params = {
+        "m": params.m,
+        "a": params.a,
+        "c": params.c,
+        "x0": params.x0,
+        "n": params.n
+    }
+
+    # Зберігаємо результати в файл
+    saved_file = save_lcg_results(numbers, lcg_params, coprime_percent, relative_error)
+
     return {
         "numbers": numbers,
         "cesaro_probability": coprime_percent,
         "relative_error": relative_error,
-        "params_used": {
-            "m": params.m,
-            "a": params.a,
-            "c": params.c,
-            "x0": params.x0,
-            "n": params.n
-        }
+        "params_used": lcg_params
     }
 
 if __name__ == "__main__":

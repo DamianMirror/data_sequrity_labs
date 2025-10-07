@@ -6,7 +6,7 @@ export default function Lab1() {
   const [data, setData] = useState(null);
   const [params, setParams] = useState({
     mPower: 20,    // Степінь двійки для модуля (2^mPower - 1)
-    a: 73,         // Множник
+    a: 343,         // Множник
     c: 89,         // Приріст
     x0: 1,         // Початкове значення
     n: 20          // Кількість чисел
@@ -104,7 +104,11 @@ export default function Lab1() {
 
       {data && (
         <>
-          <ResultCard title="Згенеровані числа" value={data.numbers?.join(", ") || "Немає даних"} />
+          <ResultCard
+            title="Згенеровані числа"
+            value={data.numbers?.join(", ") || "Немає даних"}
+            collapsible={true}
+          />
           <ResultCard
             title="Ймовірність взаємно простих чисел"
             value={data.cesaro_probability !== undefined ? `${(data.cesaro_probability * 100).toFixed(2)}%` : "Немає даних"}
