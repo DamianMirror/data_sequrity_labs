@@ -1,4 +1,4 @@
-const API_URL = "http://127.0.0.1:8001";
+const API_URL = "http://127.0.0.1:8000";
 
 export async function generateNumbers(params = null) {
   const body = params ? JSON.stringify(params) : null;

@@ -1,8 +1,11 @@
+import numpy as np
+
 def lcg(seed: int, a: int, c: int, m: int, n: int):
-    """Лінійний конгруентний генератор"""
-    numbers = []
+    """Лінійний конгруентний генератор з використанням numpy для швидкості"""
+    numbers = np.empty(n, dtype=np.int64)
     x = seed
-    for _ in range(n):
+    for i in range(n):
         x = (a * x + c) % m
-        numbers.append(x)
-    return numbers
+        numbers[i] = x
+    return numbers.tolist()
+
