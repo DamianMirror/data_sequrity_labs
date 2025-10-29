@@ -15,7 +15,7 @@ def cesaro_test(numbers: list[int]) -> tuple[float, float]:
 
     if coprime_percent <= 0:
         print("No coprime pairs found, returning 100% error")
-        return coprime_percent, 100.0  # Максимальна похибка, якщо немає взаємно простих пар
+        return coprime_percent, 100.0
 
     pi_estimate = math.sqrt(6 / coprime_percent)
     error = abs(math.pi - pi_estimate)
