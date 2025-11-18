@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar.jsx";
 import Lab1 from "./pages/Lab1.jsx";
 import Lab2 from "./pages/Lab2.jsx";
+import Lab3 from "./pages/Lab3.jsx";
 
 function Home() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/lab1" element={<Lab1 />} />
         <Route path="/lab2" element={<Lab2 />} />
+        <Route path="/lab3" element={<Lab3 />} />
       </Routes>
     </BrowserRouter>
   );

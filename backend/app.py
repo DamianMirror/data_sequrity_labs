@@ -8,6 +8,8 @@ from lab1_utils.lcg import lcg
 from algo_tests.cesaro import cesaro_test
 from utils.data_saver import save_lcg_results
 from lab2_utils.md5 import md5, md5_file, verify_file_integrity
+from lab3_units.file_cipher import encrypt_file, decrypt_file
+from lab3_units.key_derivation import derive_key_info
 
 app = FastAPI()
 
@@ -186,6 +188,142 @@ async def verify_file(file: UploadFile = File(...), expected_hash: str = Form(..
         # Clean up temp file if it exists
         if 'temp_path' in locals() and os.path.exists(temp_path):
             os.unlink(temp_path)
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+# ==================== LAB 3: RC5 File Encryption Endpoints ====================
+
+class PassphraseRequest(BaseModel):
+    passphrase: str
+
+@app.post("/lab3/derive-key/")
+def derive_key(request: PassphraseRequest):
+    """
+    Derive encryption key from passphrase and return key information
+    """
+    try:
+        key_info = derive_key_info(request.passphrase)
+        # Don't send the actual key bytes to frontend for security
+        return {
+            "success": True,
+            "passphrase": key_info["passphrase"],
+            "md5_passphrase": key_info["md5_passphrase"],
+            "md5_of_md5": key_info["md5_of_md5"],
+            "full_key_hex": key_info["full_key_hex"],
+            "key_length_bits": key_info["key_length_bits"]
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/lab3/encrypt-file/")
+async def encrypt_file_endpoint(file: UploadFile = File(...), passphrase: str = Form(...)):
+    """
+    Encrypt a file using RC5 cipher in CBC mode
+    """
+    try:
+        # Save uploaded file to temporary location
+        with tempfile.NamedTemporaryFile(delete=False, suffix='_plain') as temp_input:
+            content = await file.read()
+            temp_input.write(content)
+            temp_input_path = temp_input.name
+
+        # Create temporary output file
+        temp_output_path = temp_input_path + '.enc'
+
+        # Encrypt the file
+        enc_info = encrypt_file(temp_input_path, temp_output_path, passphrase)
+
+        # Read encrypted file
+        with open(temp_output_path, 'rb') as f:
+            encrypted_content = f.read()
+
+        # Clean up temp files
+        os.unlink(temp_input_path)
+        os.unlink(temp_output_path)
+
+        # Return encrypted file as base64
+        import base64
+        encrypted_base64 = base64.b64encode(encrypted_content).decode('utf-8')
+
+        return {
+            "success": True,
+            "filename": file.filename,
+            "original_size": enc_info["original_size"],
+            "padded_size": enc_info["padded_size"],
+            "encrypted_size": enc_info["encrypted_size"],
+            "blocks_encrypted": enc_info["blocks_encrypted"],
+            "encrypted_data": encrypted_base64
+        }
+    except Exception as e:
+        # Clean up temp files if they exist
+        if 'temp_input_path' in locals() and os.path.exists(temp_input_path):
+            os.unlink(temp_input_path)
+        if 'temp_output_path' in locals() and os.path.exists(temp_output_path):
+            os.unlink(temp_output_path)
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/lab3/decrypt-file/")
+async def decrypt_file_endpoint(file: UploadFile = File(...), passphrase: str = Form(...)):
+    """
+    Decrypt a file encrypted with RC5 cipher in CBC mode
+    """
+    try:
+        # Save uploaded encrypted file to temporary location
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.enc') as temp_input:
+            content = await file.read()
+            temp_input.write(content)
+            temp_input_path = temp_input.name
+
+        # Create temporary output file
+        temp_output_path = temp_input_path + '.dec'
+
+        # Decrypt the file
+        dec_info = decrypt_file(temp_input_path, temp_output_path, passphrase)
+
+        # Read decrypted file
+        with open(temp_output_path, 'rb') as f:
+            decrypted_content = f.read()
+
+        # Clean up temp files
+        os.unlink(temp_input_path)
+        os.unlink(temp_output_path)
+
+        # Return decrypted file as base64
+        import base64
+        decrypted_base64 = base64.b64encode(decrypted_content).decode('utf-8')
+
+        return {
+            "success": True,
+            "filename": file.filename,
+            "encrypted_size": dec_info["encrypted_size"],
+            "decrypted_size": dec_info["decrypted_size"],
+            "blocks_decrypted": dec_info["blocks_decrypted"],
+            "decrypted_data": decrypted_base64
+        }
+    except ValueError as e:
+        # Clean up temp files if they exist
+        if 'temp_input_path' in locals() and os.path.exists(temp_input_path):
+            os.unlink(temp_input_path)
+        if 'temp_output_path' in locals() and os.path.exists(temp_output_path):
+            os.unlink(temp_output_path)
+        return {
+            "success": False,
+            "error": f"Decryption failed: {str(e)}"
+        }
+    except Exception as e:
+        # Clean up temp files if they exist
+        if 'temp_input_path' in locals() and os.path.exists(temp_input_path):
+            os.unlink(temp_input_path)
+        if 'temp_output_path' in locals() and os.path.exists(temp_output_path):
+            os.unlink(temp_output_path)
         return {
             "success": False,
             "error": str(e)

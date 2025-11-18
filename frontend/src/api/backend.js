@@ -48,3 +48,38 @@ export async function verifyFile(file, expectedHash) {
   return response.json();
 }
 
+// ==================== LAB 3 API ====================
+
+export async function deriveKey(passphrase) {
+  const response = await fetch(`${API_URL}/lab3/derive-key/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ passphrase })
+  });
+  return response.json();
+}
+
+export async function encryptFile(file, passphrase) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("passphrase", passphrase);
+
+  const response = await fetch(`${API_URL}/lab3/encrypt-file/`, {
+    method: "POST",
+    body: formData
+  });
+  return response.json();
+}
+
+export async function decryptFile(file, passphrase) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("passphrase", passphrase);
+
+  const response = await fetch(`${API_URL}/lab3/decrypt-file/`, {
+    method: "POST",
+    body: formData
+  });
+  return response.json();
+}
+
