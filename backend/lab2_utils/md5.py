@@ -38,9 +38,11 @@ T = [
 
 def left_rotate(x, amount):
     """Left rotate a 32-bit integer x by amount bits"""
-    x &= 0xFFFFFFFF
-    return ((x << amount) | (x >> (32 - amount))) & 0xFFFFFFFF
+    norm(x)
+    return norm((x << amount) | (x >> (32 - amount)))
 
+def norm(data):
+    return data & 0xFFFFFFFF
 
 def pad_message(message):
     """
@@ -52,20 +54,18 @@ def pad_message(message):
     # Pad with zeros until length ≡ 448 (mod 512)
     message += b'\x00' * ((56 - (msg_len + 1) % 64) % 64)
 
-    # Append original length in bits as 64-bit little-endian
+    # original length
     message += struct.pack('<Q', msg_len * 8)
 
     return message
 
 
 def process_chunk(chunk, a, b, c, d):
-    """Process a single 512-bit chunk"""
-    # Break chunk into sixteen 32-bit words (little-endian)
+
     X = list(struct.unpack('<16I', chunk))
 
     A, B, C, D = a, b, c, d
 
-    # 64 rounds
     for i in range(64):
         if i < 16:
             # Round 1: F(B,C,D) = (B AND C) OR ((NOT B) AND D)
@@ -84,26 +84,24 @@ def process_chunk(chunk, a, b, c, d):
             F = C ^ (B | ~D)
             g = (7 * i) % 16
 
-        F &= 0xFFFFFFFF
+        norm(F)
 
         # Update registers
-        temp = (A + F + T[i] + X[g]) & 0xFFFFFFFF
+        temp = norm(A + F + T[i] + X[g])
         temp = left_rotate(temp, S[i])
-        temp = (temp + B) & 0xFFFFFFFF
+        temp = norm(temp + B)
 
         A, B, C, D = D, temp, B, C
 
-    # Add this chunk's hash to result so far
-    a = (a + A) & 0xFFFFFFFF
-    b = (b + B) & 0xFFFFFFFF
-    c = (c + C) & 0xFFFFFFFF
-    d = (d + D) & 0xFFFFFFFF
+    a = norm(a + A)
+    b = norm(b + B)
+    c = norm(c + C)
+    d = norm(d + D)
 
     return a, b, c, d
 
 
 def md5(message):
-    # Convert string to bytes
     if isinstance(message, str):
         message = message.encode('utf-8')
 
