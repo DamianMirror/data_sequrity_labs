@@ -10,6 +10,13 @@ from utils.data_saver import save_lcg_results
 from lab2_utils.md5 import md5, md5_file, verify_file_integrity
 from lab3_units.file_cipher import encrypt_file, decrypt_file
 from lab3_units.key_derivation import derive_key_info
+from lab_4_units.rsa_crypto import (
+    generate_rsa_keys, save_private_key, save_public_key,
+    load_private_key, load_public_key,
+    encrypt_file as rsa_encrypt_file,
+    decrypt_file as rsa_decrypt_file
+)
+from lab_4_units.performance_comparison import compare_encryption_performance, format_comparison_report
 
 app = FastAPI()
 
@@ -324,6 +331,210 @@ async def decrypt_file_endpoint(file: UploadFile = File(...), passphrase: str = 
             os.unlink(temp_input_path)
         if 'temp_output_path' in locals() and os.path.exists(temp_output_path):
             os.unlink(temp_output_path)
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+# ==================== LAB 4: RSA Encryption Endpoints ====================
+
+class RSAKeySizeRequest(BaseModel):
+    key_size: Optional[int] = 2048
+
+class FileSizeRequest(BaseModel):
+    file_size_kb: int = 100
+
+@app.post("/lab4/generate-keys/")
+def generate_keys_endpoint(request: RSAKeySizeRequest):
+    """
+    Generate RSA key pair and return them as PEM strings
+    """
+    try:
+        # Generate RSA keys
+        private_key, public_key = generate_rsa_keys(key_size=request.key_size)
+
+        # Create temporary files for keys
+        with tempfile.NamedTemporaryFile(delete=False, suffix='_private.pem') as temp_priv:
+            temp_private_path = temp_priv.name
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix='_public.pem') as temp_pub:
+            temp_public_path = temp_pub.name
+
+        # Save keys to temp files
+        save_private_key(private_key, temp_private_path)
+        save_public_key(public_key, temp_public_path)
+
+        # Read keys as PEM strings
+        with open(temp_private_path, 'rb') as f:
+            private_key_pem = f.read().decode('utf-8')
+
+        with open(temp_public_path, 'rb') as f:
+            public_key_pem = f.read().decode('utf-8')
+
+        # Clean up temp files
+        os.unlink(temp_private_path)
+        os.unlink(temp_public_path)
+
+        return {
+            "success": True,
+            "key_size": request.key_size,
+            "private_key_pem": private_key_pem,
+            "public_key_pem": public_key_pem
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/lab4/encrypt-file/")
+async def rsa_encrypt_file_endpoint(file: UploadFile = File(...), public_key_pem: str = Form(...)):
+    """
+    Encrypt a file using RSA hybrid approach (RSA + AES)
+    """
+    try:
+        # Save uploaded file to temporary location
+        with tempfile.NamedTemporaryFile(delete=False, suffix='_plain') as temp_input:
+            content = await file.read()
+            temp_input.write(content)
+            temp_input_path = temp_input.name
+
+        # Save public key to temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix='_public.pem', mode='w') as temp_key:
+            temp_key.write(public_key_pem)
+            temp_key_path = temp_key.name
+
+        # Load public key
+        public_key = load_public_key(temp_key_path)
+
+        # Create temporary output file
+        temp_output_path = temp_input_path + '.rsa'
+
+        # Encrypt the file
+        enc_info = rsa_encrypt_file(temp_input_path, temp_output_path, public_key)
+
+        # Read encrypted file
+        with open(temp_output_path, 'rb') as f:
+            encrypted_content = f.read()
+
+        # Clean up temp files
+        os.unlink(temp_input_path)
+        os.unlink(temp_key_path)
+        os.unlink(temp_output_path)
+
+        # Return encrypted file as base64
+        import base64
+        encrypted_base64 = base64.b64encode(encrypted_content).decode('utf-8')
+
+        return {
+            "success": True,
+            "filename": file.filename,
+            "original_size": enc_info["original_size"],
+            "padded_size": enc_info["padded_size"],
+            "encrypted_size": enc_info["encrypted_size"],
+            "encryption_time": enc_info["encryption_time"],
+            "encrypted_data": encrypted_base64
+        }
+    except Exception as e:
+        # Clean up temp files if they exist
+        if 'temp_input_path' in locals() and os.path.exists(temp_input_path):
+            os.unlink(temp_input_path)
+        if 'temp_key_path' in locals() and os.path.exists(temp_key_path):
+            os.unlink(temp_key_path)
+        if 'temp_output_path' in locals() and os.path.exists(temp_output_path):
+            os.unlink(temp_output_path)
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/lab4/decrypt-file/")
+async def rsa_decrypt_file_endpoint(file: UploadFile = File(...), private_key_pem: str = Form(...)):
+    """
+    Decrypt a file encrypted with RSA hybrid approach
+    """
+    try:
+        # Save uploaded encrypted file to temporary location
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.rsa') as temp_input:
+            content = await file.read()
+            temp_input.write(content)
+            temp_input_path = temp_input.name
+
+        # Save private key to temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix='_private.pem', mode='w') as temp_key:
+            temp_key.write(private_key_pem)
+            temp_key_path = temp_key.name
+
+        # Load private key
+        private_key = load_private_key(temp_key_path)
+
+        # Create temporary output file
+        temp_output_path = temp_input_path + '.dec'
+
+        # Decrypt the file
+        dec_info = rsa_decrypt_file(temp_input_path, temp_output_path, private_key)
+
+        # Read decrypted file
+        with open(temp_output_path, 'rb') as f:
+            decrypted_content = f.read()
+
+        # Clean up temp files
+        os.unlink(temp_input_path)
+        os.unlink(temp_key_path)
+        os.unlink(temp_output_path)
+
+        # Return decrypted file as base64
+        import base64
+        decrypted_base64 = base64.b64encode(decrypted_content).decode('utf-8')
+
+        return {
+            "success": True,
+            "filename": file.filename,
+            "encrypted_size": dec_info["encrypted_size"],
+            "decrypted_size": dec_info["decrypted_size"],
+            "decryption_time": dec_info["decryption_time"],
+            "decrypted_data": decrypted_base64
+        }
+    except ValueError as e:
+        # Clean up temp files if they exist
+        if 'temp_input_path' in locals() and os.path.exists(temp_input_path):
+            os.unlink(temp_input_path)
+        if 'temp_key_path' in locals() and os.path.exists(temp_key_path):
+            os.unlink(temp_key_path)
+        if 'temp_output_path' in locals() and os.path.exists(temp_output_path):
+            os.unlink(temp_output_path)
+        return {
+            "success": False,
+            "error": f"Decryption failed: {str(e)}"
+        }
+    except Exception as e:
+        # Clean up temp files if they exist
+        if 'temp_input_path' in locals() and os.path.exists(temp_input_path):
+            os.unlink(temp_input_path)
+        if 'temp_key_path' in locals() and os.path.exists(temp_key_path):
+            os.unlink(temp_key_path)
+        if 'temp_output_path' in locals() and os.path.exists(temp_output_path):
+            os.unlink(temp_output_path)
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/lab4/compare-performance/")
+def compare_performance_endpoint(request: FileSizeRequest):
+    """
+    Compare RSA vs RC5 encryption performance
+    """
+    try:
+        results = compare_encryption_performance(file_size_kb=request.file_size_kb)
+        report = format_comparison_report(results)
+
+        return {
+            "success": True,
+            "results": results,
+            "report": report
+        }
+    except Exception as e:
         return {
             "success": False,
             "error": str(e)

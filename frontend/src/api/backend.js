@@ -83,3 +83,47 @@ export async function decryptFile(file, passphrase) {
   return response.json();
 }
 
+// ==================== LAB 4 API ====================
+
+export async function generateRSAKeys(keySize = 2048) {
+  const response = await fetch(`${API_URL}/lab4/generate-keys/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key_size: keySize })
+  });
+  return response.json();
+}
+
+export async function encryptRSAFile(file, publicKeyPem) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("public_key_pem", publicKeyPem);
+
+  const response = await fetch(`${API_URL}/lab4/encrypt-file/`, {
+    method: "POST",
+    body: formData
+  });
+  return response.json();
+}
+
+export async function decryptRSAFile(file, privateKeyPem) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("private_key_pem", privateKeyPem);
+
+  const response = await fetch(`${API_URL}/lab4/decrypt-file/`, {
+    method: "POST",
+    body: formData
+  });
+  return response.json();
+}
+
+export async function comparePerformance(fileSizeKb = 100) {
+  const response = await fetch(`${API_URL}/lab4/compare-performance/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ file_size_kb: fileSizeKb })
+  });
+  return response.json();
+}
+

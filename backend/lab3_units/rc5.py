@@ -1,5 +1,5 @@
 """
-RC5 CBC
+RC5
 """
 
 import struct
@@ -53,7 +53,7 @@ class RC5:
         Returns:
             int: rotated value
         """
-        mod32(shift) # mod 32
+        shift = mod32(shift) # mod 32
         return norm((val << shift) | (val >> (32 - shift)))
 
     def _rotate_right(self, val, shift):
@@ -67,7 +67,7 @@ class RC5:
         Returns:
             int: rotated value
         """
-        mod32(shift) # mod 32
+        shift = mod32(shift) # mod 32
         return norm((val >> shift) | (val << (32 - shift)))
 
     def _key_expansion(self, key):
