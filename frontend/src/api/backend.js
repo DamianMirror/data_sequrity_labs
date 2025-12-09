@@ -127,3 +127,64 @@ export async function comparePerformance(fileSizeKb = 100) {
   return response.json();
 }
 
+// ==================== LAB 5 API ====================
+
+export async function generateDSAKeys(keySize = 2048) {
+  const response = await fetch(`${API_URL}/lab5/generate-keys/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key_size: keySize })
+  });
+  return response.json();
+}
+
+export async function signString(message, privateKeyPem) {
+  const formData = new FormData();
+  formData.append("message", message);
+  formData.append("private_key_pem", privateKeyPem);
+
+  const response = await fetch(`${API_URL}/lab5/sign-string/`, {
+    method: "POST",
+    body: formData
+  });
+  return response.json();
+}
+
+export async function verifyString(message, signatureHex, publicKeyPem) {
+  const formData = new FormData();
+  formData.append("message", message);
+  formData.append("signature_hex", signatureHex);
+  formData.append("public_key_pem", publicKeyPem);
+
+  const response = await fetch(`${API_URL}/lab5/verify-string/`, {
+    method: "POST",
+    body: formData
+  });
+  return response.json();
+}
+
+export async function signFile(file, privateKeyPem) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("private_key_pem", privateKeyPem);
+
+  const response = await fetch(`${API_URL}/lab5/sign-file/`, {
+    method: "POST",
+    body: formData
+  });
+  return response.json();
+}
+
+export async function verifyFileSignature(file, signatureFile, publicKeyPem) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("signature_file", signatureFile);
+  formData.append("public_key_pem", publicKeyPem);
+
+  const response = await fetch(`${API_URL}/lab5/verify-file/`, {
+    method: "POST",
+    body: formData
+  });
+  return response.json();
+}
+

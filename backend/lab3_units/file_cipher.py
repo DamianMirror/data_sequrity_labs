@@ -1,5 +1,5 @@
 """
-File Encryption/Decryption using RC5 in CBC mode
+File Encryption/Decryption using RC5 in CBC-pad mode
 """
 
 import os

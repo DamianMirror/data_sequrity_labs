@@ -8,7 +8,8 @@ export default function Navbar() {
       <Link to="/lab1" style={{ marginRight: "10px" }}>Lab 1</Link>
       <Link to="/lab2" style={{ marginRight: "10px" }}>Lab 2</Link>
       <Link to="/lab3" style={{ marginRight: "10px" }}>Lab 3</Link>
-      <Link to="/lab4">Lab 4</Link>
+      <Link to="/lab4" style={{ marginRight: "10px" }}>Lab 4</Link>
+      <Link to="/lab5">Lab 5</Link>
     </nav>
   );
 }

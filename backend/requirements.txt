@@ -1,6 +1,9 @@
 fastapi
 uvicorn
 pandas
-math
 numba
 numpy
+pytest
+pytest-cov
+cryptography
+python-multipart

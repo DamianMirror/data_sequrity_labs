@@ -182,26 +182,6 @@ def format_comparison_report(results):
     else:
         report.append(f"  RC5 is {1/comp['decryption_speedup']:.2f}x faster at decryption than RSA")
 
-    report.append("\n" + "-" * 80)
-    report.append("Conclusions:")
-    report.append("-" * 80)
-    report.append("  Pure RSA-2048:")
-    report.append("    - Asymmetric encryption (public/private keys)")
-    report.append("    - File is split into ~190-byte chunks")
-    report.append("    - Each chunk encrypted separately with RSA")
-    report.append("    - SLOWER for large files due to multiple RSA operations")
-    report.append("    - Encrypted file size is larger (each 190-byte chunk -> 256 bytes)")
-    report.append("    - Key generation adds overhead")
-    report.append("")
-    report.append("  RC5-32/12/16:")
-    report.append("    - Symmetric encryption algorithm")
-    report.append("    - Much FASTER for bulk data encryption")
-    report.append("    - Encrypts data in continuous stream")
-    report.append("    - Requires secure key exchange")
-    report.append("    - No key generation overhead")
-    report.append("    - More efficient use of space")
-    report.append("=" * 80)
-
     return "\n".join(report)
 
 

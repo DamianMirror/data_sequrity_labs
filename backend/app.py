@@ -17,42 +17,48 @@ from lab_4_units.rsa_crypto import (
     decrypt_file as rsa_decrypt_file
 )
 from lab_4_units.performance_comparison import compare_encryption_performance, format_comparison_report
+from lab5_utils.dss_crypto import (
+    generate_dsa_keys, save_private_key as save_dsa_private_key,
+    save_public_key as save_dsa_public_key,
+    load_private_key as load_dsa_private_key,
+    load_public_key as load_dsa_public_key,
+    sign_string, verify_string_signature,
+    sign_file, verify_file_signature,
+    save_signature, load_signature,
+    get_key_info as get_dsa_key_info
+)
 
 app = FastAPI()
 
 # Startup event - run tests when server starts
 @app.on_event("startup")
 async def startup_event():
-    print("\n" + "="*80)
-    print("Running MD5 Algorithm Tests (RFC 1321)...")
-    print("="*80)
+    """Run all unit tests before starting the server"""
+    import pytest
+    import sys
 
-    test_cases = [
-        ("", "d41d8cd98f00b204e9800998ecf8427e"),
-        ("a", "0cc175b9c0f1b6a831c399e269772661"),
-        ("abc", "900150983cd24fb0d6963f7d28e17f72"),
-        ("message digest", "f96b697d7cb7938d525a2f31aaf161d0"),
-        ("abcdefghijklmnopqrstuvwxyz", "c3fcd3d76192e4007dfb496cca67e13b"),
-        ("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
-         "d174ab98d277d9f5a5611c2c9f419d9f"),
-        ("12345678901234567890123456789012345678901234567890123456789012345678901234567890",
-         "57edf4a22be3c955ac49da2e2107b67a"),
+    print("\n" + "="*80)
+    print("RUNNING UNIT TESTS BEFORE SERVER STARTUP")
+    print("="*80 + "\n")
+
+    # Run pytest with specific arguments
+    args = [
+        "tests",
+        "-v",
+        "--tb=short",
+        "--color=yes",
+        "-ra",
+        "--maxfail=5",  # Stop after 5 failures
     ]
 
-    all_passed = True
-    for text, expected in test_cases:
-        result = md5(text)
-        passed = result == expected
-        all_passed = all_passed and passed
-        status = "[PASS]" if passed else "[FAIL]"
-        display_text = "(empty string)" if text == "" else (text[:40] + "..." if len(text) > 40 else text)
-        print(f"{status} MD5('{display_text}') = {result}")
+    exit_code = pytest.main(args)
 
-    print("-"*80)
-    if all_passed:
-        print("[SUCCESS] All MD5 tests PASSED!")
+    print("\n" + "="*80)
+    if exit_code == 0:
+        print("[SUCCESS] All unit tests PASSED! Server starting...")
     else:
-        print("[ERROR] Some MD5 tests FAILED!")
+        print("[WARNING] Some tests FAILED! Server starting anyway...")
+        print("Please review and fix failing tests.")
     print("="*80 + "\n")
 
 # Дозволяємо фронтенд (React)
@@ -535,6 +541,267 @@ def compare_performance_endpoint(request: FileSizeRequest):
             "report": report
         }
     except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+# ==================== LAB 5: Digital Signature Standard (DSS) ====================
+
+class DSAKeySizeRequest(BaseModel):
+    key_size: Optional[int] = 2048
+
+class SignStringRequest(BaseModel):
+    message: str
+
+@app.post("/lab5/generate-keys/")
+def generate_dsa_keys_endpoint(request: DSAKeySizeRequest):
+    """
+    Generate DSA key pair for digital signatures
+    """
+    try:
+        # Generate DSA keys
+        private_key, public_key = generate_dsa_keys(key_size=request.key_size)
+
+        # Create temporary files for keys
+        with tempfile.NamedTemporaryFile(delete=False, suffix='_dsa_private.pem') as temp_priv:
+            temp_private_path = temp_priv.name
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix='_dsa_public.pem') as temp_pub:
+            temp_public_path = temp_pub.name
+
+        # Save keys to temp files
+        save_dsa_private_key(private_key, temp_private_path)
+        save_dsa_public_key(public_key, temp_public_path)
+
+        # Read keys as PEM strings
+        with open(temp_private_path, 'rb') as f:
+            private_key_pem = f.read().decode('utf-8')
+
+        with open(temp_public_path, 'rb') as f:
+            public_key_pem = f.read().decode('utf-8')
+
+        # Get key info
+        key_info = get_dsa_key_info(private_key)
+
+        # Clean up temp files
+        os.unlink(temp_private_path)
+        os.unlink(temp_public_path)
+
+        return {
+            "success": True,
+            "key_size": request.key_size,
+            "private_key_pem": private_key_pem,
+            "public_key_pem": public_key_pem,
+            "key_info": key_info
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/lab5/sign-string/")
+async def sign_string_endpoint(message: str = Form(...), private_key_pem: str = Form(...)):
+    """
+    Create digital signature for a string message
+    """
+    try:
+        # Save private key to temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix='_dsa_private.pem', mode='w') as temp_key:
+            temp_key.write(private_key_pem)
+            temp_key_path = temp_key.name
+
+        # Load private key
+        private_key = load_dsa_private_key(temp_key_path)
+
+        # Sign the message
+        signature = sign_string(message, private_key)
+
+        # Clean up temp file
+        os.unlink(temp_key_path)
+
+        # Return signature in hex format
+        import base64
+        signature_hex = signature.hex()
+        signature_base64 = base64.b64encode(signature).decode('utf-8')
+
+        return {
+            "success": True,
+            "message": message,
+            "signature_hex": signature_hex,
+            "signature_base64": signature_base64,
+            "signature_length": len(signature)
+        }
+    except Exception as e:
+        # Clean up temp file if it exists
+        if 'temp_key_path' in locals() and os.path.exists(temp_key_path):
+            os.unlink(temp_key_path)
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/lab5/verify-string/")
+async def verify_string_endpoint(
+    message: str = Form(...),
+    signature_hex: str = Form(...),
+    public_key_pem: str = Form(...)
+):
+    """
+    Verify digital signature for a string message
+    """
+    try:
+        # Save public key to temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix='_dsa_public.pem', mode='w') as temp_key:
+            temp_key.write(public_key_pem)
+            temp_key_path = temp_key.name
+
+        # Load public key
+        public_key = load_dsa_public_key(temp_key_path)
+
+        # Convert hex signature to bytes
+        signature = bytes.fromhex(signature_hex)
+
+        # Verify signature
+        is_valid = verify_string_signature(message, signature, public_key)
+
+        # Clean up temp file
+        os.unlink(temp_key_path)
+
+        return {
+            "success": True,
+            "message": message,
+            "is_valid": is_valid,
+            "verification_message": "Signature is valid!" if is_valid else "Signature is INVALID!"
+        }
+    except Exception as e:
+        # Clean up temp file if it exists
+        if 'temp_key_path' in locals() and os.path.exists(temp_key_path):
+            os.unlink(temp_key_path)
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/lab5/sign-file/")
+async def sign_file_endpoint(file: UploadFile = File(...), private_key_pem: str = Form(...)):
+    """
+    Create digital signature for a file
+    """
+    try:
+        # Save uploaded file to temporary location
+        with tempfile.NamedTemporaryFile(delete=False, suffix='_to_sign') as temp_file:
+            content = await file.read()
+            temp_file.write(content)
+            temp_file_path = temp_file.name
+
+        # Save private key to temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix='_dsa_private.pem', mode='w') as temp_key:
+            temp_key.write(private_key_pem)
+            temp_key_path = temp_key.name
+
+        # Load private key
+        private_key = load_dsa_private_key(temp_key_path)
+
+        # Sign the file
+        signature = sign_file(temp_file_path, private_key)
+
+        # Create signature file
+        sig_file_path = temp_file_path + '.sig'
+        save_signature(signature, sig_file_path)
+
+        # Read signature file
+        with open(sig_file_path, 'r') as f:
+            signature_hex = f.read()
+
+        # Clean up temp files
+        os.unlink(temp_file_path)
+        os.unlink(temp_key_path)
+        os.unlink(sig_file_path)
+
+        # Return signature
+        import base64
+        signature_base64 = base64.b64encode(signature).decode('utf-8')
+
+        return {
+            "success": True,
+            "filename": file.filename,
+            "file_size": len(content),
+            "signature_hex": signature_hex,
+            "signature_base64": signature_base64,
+            "signature_length": len(signature)
+        }
+    except Exception as e:
+        # Clean up temp files if they exist
+        if 'temp_file_path' in locals() and os.path.exists(temp_file_path):
+            os.unlink(temp_file_path)
+        if 'temp_key_path' in locals() and os.path.exists(temp_key_path):
+            os.unlink(temp_key_path)
+        if 'sig_file_path' in locals() and os.path.exists(sig_file_path):
+            os.unlink(sig_file_path)
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@app.post("/lab5/verify-file/")
+async def verify_file_signature_endpoint(
+    file: UploadFile = File(...),
+    signature_file: UploadFile = File(...),
+    public_key_pem: str = Form(...)
+):
+    """
+    Verify digital signature for a file using signature file
+    """
+    try:
+        # Save uploaded file to temporary location
+        with tempfile.NamedTemporaryFile(delete=False, suffix='_to_verify') as temp_file:
+            file_content = await file.read()
+            temp_file.write(file_content)
+            temp_file_path = temp_file.name
+
+        # Save signature file
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.sig', mode='w') as temp_sig:
+            sig_content = await signature_file.read()
+            temp_sig.write(sig_content.decode('utf-8'))
+            temp_sig_path = temp_sig.name
+
+        # Save public key to temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix='_dsa_public.pem', mode='w') as temp_key:
+            temp_key.write(public_key_pem)
+            temp_key_path = temp_key.name
+
+        # Load public key
+        public_key = load_dsa_public_key(temp_key_path)
+
+        # Load signature
+        signature = load_signature(temp_sig_path)
+
+        # Verify signature
+        is_valid = verify_file_signature(temp_file_path, signature, public_key)
+
+        # Clean up temp files
+        os.unlink(temp_file_path)
+        os.unlink(temp_sig_path)
+        os.unlink(temp_key_path)
+
+        return {
+            "success": True,
+            "filename": file.filename,
+            "signature_filename": signature_file.filename,
+            "file_size": len(file_content),
+            "is_valid": is_valid,
+            "verification_message": "File signature is valid!" if is_valid else "File signature is INVALID!"
+        }
+    except Exception as e:
+        # Clean up temp files if they exist
+        if 'temp_file_path' in locals() and os.path.exists(temp_file_path):
+            os.unlink(temp_file_path)
+        if 'temp_sig_path' in locals() and os.path.exists(temp_sig_path):
+            os.unlink(temp_sig_path)
+        if 'temp_key_path' in locals() and os.path.exists(temp_key_path):
+            os.unlink(temp_key_path)
         return {
             "success": False,
             "error": str(e)

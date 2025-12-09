@@ -156,3 +156,18 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# SonarQube
+.scannerwork/
+.sonar/
+sonar-scanner.properties
+backend/coverage.xml
+backend/test-results.xml
+backend/htmlcov/
+backend/.coverage
+backend/pylint-report.txt
+backend/flake8-report.txt
+
+# Pytest
+.pytest_cache/
+backend/.pytest_cache/
