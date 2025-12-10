@@ -1,10 +1,11 @@
 [run]
-source = lab1_utils,lab2_utils,lab3_units
+source = lab1_utils,lab2_utils,lab3_units,lab_4_units,lab5_utils,utils,algo_tests
 omit =
     */tests/*
     */__pycache__/*
     */venv/*
     */.venv/*
+    */__init__.py
 
 [report]
 exclude_lines =
